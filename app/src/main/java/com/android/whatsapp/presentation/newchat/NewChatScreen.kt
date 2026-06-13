@@ -1,0 +1,173 @@
+package com.android.whatsapp.presentation.newchat
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.whatsapp.model.dataclass.User
+import com.android.whatsapp.ui.theme.*
+import kotlinx.coroutines.launch
+import org.koin.compose.viewmodel.koinViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewChatScreen(
+    onBack       : () -> Unit,
+    onChatCreated: (chatId: String, peerName: String, peerAvatar: String) -> Unit
+) {
+    val viewModel: NewChatViewModel = koinViewModel()
+    val state    by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope    = rememberCoroutineScope()
+
+    // Navigate when chat is created
+    LaunchedEffect(state.createdChatId) {
+        state.createdChatId?.let { chatId ->
+            onChatCreated(
+                chatId,
+                state.selectedUser?.displayName ?: "",
+                state.selectedUser?.avatarUrl   ?: ""
+            )
+            viewModel.resetCreated()
+        }
+    }
+
+    // Show snackbar on error
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            scope.launch { snackbarHostState.showSnackbar(it) }
+            viewModel.clearError()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("New chat", color = TextPrimary) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface800)
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData    = data,
+                    containerColor  = Surface700,
+                    contentColor    = TextPrimary,
+                    actionColor     = Green500
+                )
+            }
+        },
+        containerColor = Surface900
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+            // Search bar
+            OutlinedTextField(
+                value         = state.query,
+                onValueChange = { viewModel.search(it) },
+                modifier      = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                placeholder   = { Text("Search by name or number", color = TextTertiary) },
+                leadingIcon   = {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary)
+                },
+                singleLine    = true,
+                colors        = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor      = Green500,
+                    unfocusedBorderColor    = Surface600,
+                    focusedContainerColor   = Surface800,
+                    unfocusedContainerColor = Surface800,
+                    focusedTextColor        = TextPrimary,
+                    unfocusedTextColor      = TextPrimary,
+                    cursorColor             = Green500
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            when {
+                state.isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Green500)
+                    }
+                }
+                state.query.isNotBlank() && state.users.isEmpty() && !state.isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No users found for \"${state.query}\"", color = TextSecondary)
+                    }
+                }
+                state.query.isBlank() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Search for someone to chat with", color = TextTertiary)
+                    }
+                }
+                else -> {
+                    LazyColumn {
+                        items(state.users, key = { it.uid }) { user ->
+                            UserRow(user = user, onClick = { viewModel.startChat(user) })
+                            HorizontalDivider(
+                                color    = DividerColor,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(start = 76.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserRow(user: User, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Surface700),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text       = user.displayName.ifBlank { user.phoneNumber }.firstOrNull()?.uppercase() ?: "?",
+                color      = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize   = 18.sp
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                user.displayName.ifBlank { "Unknown" },
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(user.phoneNumber, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+    }
+}
