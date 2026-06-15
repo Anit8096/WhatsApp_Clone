@@ -30,30 +30,41 @@ import com.android.whatsapp.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpVerifyScreen(
-    phoneNumber: String,
-    onVerified: () -> Unit,
-    onBack: () -> Unit,
-    viewModel: AuthViewModel
+    phoneNumber   : String,
+    onVerified    : () -> Unit,   // new user → go to ProfileSetup
+    onExistingUser: () -> Unit,   // returning user → go to Home
+    onBack        : () -> Unit,
+    viewModel     : AuthViewModel
 ) {
-    val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
-    val isLoading      = uiState is AuthUiState.Loading
-    var otp           by remember { mutableStateOf("") }
-    var awaitingVerification by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val activity = LocalActivity.current
+    val uiState        by viewModel.uiState.collectAsStateWithLifecycle()
+    val isLoading       = uiState is AuthUiState.Loading
+    var otp            by remember { mutableStateOf("") }
+    var awaitingVerify by remember { mutableStateOf(false) }
+    val focusRequester  = remember { FocusRequester() }
+    val activity        = LocalActivity.current as Activity
 
-    // Disable back while loading — prevents going back mid-verification
-    BackHandler(enabled = isLoading) { /* consume, do nothing */ }
+    BackHandler(enabled = isLoading) { }
 
-    LaunchedEffect(uiState, awaitingVerification) {
-        if (awaitingVerification && uiState is AuthUiState.Success) {
-            awaitingVerification = false
-            viewModel.resetState()
-            onVerified()
-        } else if (awaitingVerification && uiState is AuthUiState.Error) {
-            awaitingVerification = false
+    LaunchedEffect(uiState, awaitingVerify) {
+        when {
+            awaitingVerify && uiState is AuthUiState.Success -> {
+                // New user — go to profile setup
+                awaitingVerify = false
+                viewModel.resetState()
+                onVerified()
+            }
+            awaitingVerify && uiState is AuthUiState.ExistingUser -> {
+                // Returning user — skip profile setup
+                awaitingVerify = false
+                viewModel.resetState()
+                onExistingUser()
+            }
+            awaitingVerify && uiState is AuthUiState.Error -> {
+                awaitingVerify = false
+            }
         }
     }
+
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     Scaffold(
@@ -61,7 +72,6 @@ fun OtpVerifyScreen(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    // Hide back arrow while loading
                     if (!isLoading) {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -85,33 +95,27 @@ fun OtpVerifyScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(48.dp))
-
             Text("Verify your number", style = MaterialTheme.typography.titleLarge)
-
             Spacer(Modifier.height(8.dp))
-
             Text(
                 "Enter the 6-digit code sent to\n$phoneNumber",
                 style     = MaterialTheme.typography.bodyMedium,
                 color     = TextSecondary,
                 textAlign = TextAlign.Center
             )
-
             Spacer(Modifier.height(48.dp))
 
-            // Hidden real input field
+            // Hidden real input
             BasicTextField(
                 value         = otp,
                 onValueChange = { if (it.length <= 6 && !isLoading) otp = it },
-                modifier      = Modifier
-                    .size(1.dp)
-                    .focusRequester(focusRequester),
+                modifier      = Modifier.size(1.dp).focusRequester(focusRequester),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 cursorBrush   = SolidColor(Green500),
                 enabled       = !isLoading
             )
 
-            // 6 visible boxes
+            // 6 boxes
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 repeat(6) { index ->
                     val char      = otp.getOrNull(index)
@@ -122,22 +126,13 @@ fun OtpVerifyScreen(
                             .background(Surface800, RoundedCornerShape(10.dp))
                             .border(
                                 width = if (isFocused) 2.dp else 1.dp,
-                                color = when {
-                                    isLoading -> Surface600
-                                    isFocused -> Green500
-                                    else      -> Surface600
-                                },
+                                color = if (isFocused) Green500 else Surface600,
                                 shape = RoundedCornerShape(10.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading && index < otp.length) {
-                            // Show dots while verifying
-                            Box(
-                                Modifier
-                                    .size(8.dp)
-                                    .background(TextSecondary, RoundedCornerShape(4.dp))
-                            )
+                            Box(Modifier.size(8.dp).background(TextSecondary, RoundedCornerShape(4.dp)))
                         } else {
                             Text(
                                 text       = char?.toString() ?: "",
@@ -153,8 +148,8 @@ fun OtpVerifyScreen(
             Spacer(Modifier.height(40.dp))
 
             Button(
-                onClick  = {
-                    awaitingVerification = true
+                onClick = {
+                    awaitingVerify = true
                     viewModel.verifyOtp(otp)
                 },
                 enabled  = otp.length == 6 && !isLoading,
@@ -176,8 +171,8 @@ fun OtpVerifyScreen(
             Spacer(Modifier.height(16.dp))
 
             TextButton(
-                onClick  = { viewModel.resendOtp(phoneNumber, activity as Activity) },
-                enabled  = !isLoading
+                onClick = { viewModel.resendOtp(phoneNumber, activity) },
+                enabled = !isLoading
             ) {
                 Text("Resend code", color = if (isLoading) TextTertiary else Green500)
             }

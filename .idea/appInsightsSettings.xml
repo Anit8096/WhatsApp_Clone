@@ -9,7 +9,7 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.android.whatsapp" />
-                  <option name="mobileSdkAppId" value="1:303782263563:android:2233ea73f5bdda91df800e" />
+                  <option name="mobileSdkAppId" value="1:303782263563:android:52fc084ea5a5d118df800e" />
                   <option name="projectId" value="whatsapp-clone-8c7e7" />
                   <option name="projectNumber" value="303782263563" />
                 </ConnectionSetting>

@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 fun PhoneEntryScreen(
     onNavigateToOtp     : (String) -> Unit,
     onGoogleSignInSuccess: () -> Unit,
-    onPhoneAuthSuccess  : () -> Unit = onGoogleSignInSuccess, // auto-verify goes same place as Google
+    onPhoneAuthSuccess  : () -> Unit = onGoogleSignInSuccess,
     viewModel           : AuthViewModel
 ) {
     val uiState   by viewModel.uiState.collectAsStateWithLifecycle()
@@ -52,19 +52,27 @@ fun PhoneEntryScreen(
 
     LaunchedEffect(uiState, awaitingOtpRequest, awaitingGoogleSignIn) {
         when {
+            // Phone OTP flow
             awaitingOtpRequest && uiState is AuthUiState.Success -> {
                 awaitingOtpRequest = false
                 viewModel.resetState()
                 if (OtpSession.verificationId.isNotBlank()) {
                     onNavigateToOtp("$countryCode$phone")
                 } else {
-                    // auto-verified (test number) — go straight to profile setup
                     onPhoneAuthSuccess()
                 }
             }
             awaitingOtpRequest && uiState is AuthUiState.Error -> {
                 awaitingOtpRequest = false
             }
+
+            // Google sign-in — now emits ExistingUser (Google accounts always have a profile)
+            awaitingGoogleSignIn && uiState is AuthUiState.ExistingUser -> {
+                awaitingGoogleSignIn = false
+                viewModel.resetState()
+                onGoogleSignInSuccess()
+            }
+            // Fallback: Success also navigates to home for Google
             awaitingGoogleSignIn && uiState is AuthUiState.Success -> {
                 awaitingGoogleSignIn = false
                 viewModel.resetState()
@@ -134,7 +142,7 @@ fun PhoneEntryScreen(
 
         Button(
             onClick = {
-                localErrorMessage = null
+                localErrorMessage  = null
                 awaitingOtpRequest = true
                 viewModel.sendOtp("$countryCode$phone", activity)
             },

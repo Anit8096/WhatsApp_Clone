@@ -9,6 +9,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.android.whatsapp.presentation.auth.AuthUiState
 import com.android.whatsapp.presentation.auth.AuthViewModel
 import com.android.whatsapp.presentation.auth.OtpVerifyScreen
 import com.android.whatsapp.presentation.auth.PhoneEntryScreen
@@ -22,11 +23,9 @@ import com.android.whatsapp.presentation.profile.ProfileScreen
 import com.android.whatsapp.presentation.settings.SettingsScreen
 import com.android.whatsapp.presentation.status.StatusScreen
 import org.koin.compose.viewmodel.koinViewModel
-import kotlin.collections.listOf
 
 @Composable
 fun AppNavGraph() {
-    // Single AuthViewModel instance shared across auth screens
     val authViewModel: AuthViewModel = koinViewModel()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
@@ -34,6 +33,7 @@ fun AppNavGraph() {
         if (isLoggedIn) MainGraph.HomeRoute else AuthGraph.PhoneEntryRoute
 
     val backStack = rememberNavBackStack(startDestination)
+
     fun navigateTo(destination: NavKey) {
         backStack.clear()
         backStack.add(destination)
@@ -41,12 +41,13 @@ fun AppNavGraph() {
 
     NavDisplay(
         backStack = backStack,
-        onBack = {backStack.removeLastOrNull()},
+        onBack    = { backStack.removeLastOrNull() },
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator()
         ),
         entryProvider = entryProvider {
+
             // ── Auth ──────────────────────────────────────────────
 
             entry<AuthGraph.PhoneEntryRoute> {
@@ -60,16 +61,18 @@ fun AppNavGraph() {
 
             entry<AuthGraph.OtpVerifyRoute> { route ->
                 OtpVerifyScreen(
-                    phoneNumber = route.phoneNumber,
-                    onVerified  = { backStack.add(AuthGraph.ProfileSetupRoute) },
-                    onBack      = { backStack.removeLastOrNull() },
-                    viewModel   = authViewModel
+                    phoneNumber    = route.phoneNumber,
+                    // Success = new user → ProfileSetup
+                    // ExistingUser = returning user → Home directly
+                    onVerified     = { navigateTo(AuthGraph.ProfileSetupRoute) },
+                    onExistingUser = { navigateTo(MainGraph.HomeRoute) },
+                    onBack         = { backStack.removeLastOrNull() },
+                    viewModel      = authViewModel
                 )
             }
 
             entry<AuthGraph.ProfileSetupRoute> {
                 ProfileSetupScreen(
-                    // Clear all auth screens, land on Home
                     onComplete = { navigateTo(MainGraph.HomeRoute) },
                     viewModel  = authViewModel
                 )
@@ -95,7 +98,6 @@ fun AppNavGraph() {
                 NewChatScreen(
                     onBack        = { backStack.removeLastOrNull() },
                     onChatCreated = { chatId, name, avatar ->
-                        // Remove NewChatScreen then open conversation
                         backStack.removeLastOrNull()
                         backStack.add(MainGraph.ConversationRoute(chatId, name, avatar))
                     }
@@ -135,7 +137,6 @@ fun AppNavGraph() {
                 SettingsScreen(
                     onBack        = { backStack.removeLastOrNull() },
                     onOpenProfile = { backStack.add(MainGraph.ProfileRoute) },
-                    // Logout: clear everything, go to phone entry
                     onSignedOut   = { navigateTo(AuthGraph.PhoneEntryRoute) }
                 )
             }

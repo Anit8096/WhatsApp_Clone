@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.whatsapp.model.repository.AuthRepository
+import com.android.whatsapp.model.repository.ChatRepository
 import com.android.whatsapp.model.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ data class ProfileState(
 
 class ProfileViewModel(
     private val authRepo: AuthRepository,
-    private val userRepo: UserRepository
+    private val userRepo: UserRepository,
+    private val chatRepo: ChatRepository   // ← needed to propagate name changes
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileState())
@@ -57,7 +59,13 @@ class ProfileViewModel(
         }
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
-            runCatching { userRepo.updateName(state.value.uid, name) }
+            runCatching {
+                // 1. Update /users/{uid}/displayName
+                userRepo.updateName(state.value.uid, name)
+                // 2. Update peerName in all chats where this user is the peer
+                //    so other users' chat lists show the new name immediately
+                //chatRepo.updatePeerNameInAllChats(state.value.uid, name)
+            }
                 .onSuccess {
                     _state.value = _state.value.copy(
                         displayName = name,
@@ -95,7 +103,6 @@ class ProfileViewModel(
     }
 
     fun updateAvatar(uri: Uri) {
-        // Guard: if already loading (e.g. rapid taps) ignore
         if (_state.value.isLoading) return
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)

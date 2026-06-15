@@ -22,7 +22,8 @@ val firebaseModule = module {
 
 val authModule = module {
     single<AuthRepository> { FirebaseAuthRepository(get(), get()) }
-    viewModelOf(::AuthViewModel)
+    // AuthViewModel now needs UserRepository to check existing profile on login
+    viewModel { AuthViewModel(get(), get()) }
 }
 
 val userModule = module {
@@ -38,7 +39,8 @@ val chatModule = module {
 }
 
 val profileModule = module {
-    viewModelOf(::ProfileViewModel)
+    // ProfileViewModel now needs ChatRepository to propagate name changes
+    viewModel { ProfileViewModel(get(), get(), get()) }
     viewModelOf(::SettingsViewModel)
 }
 

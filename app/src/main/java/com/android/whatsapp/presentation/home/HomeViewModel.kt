@@ -7,6 +7,7 @@ import com.android.whatsapp.model.repository.ChatRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(private val repo: ChatRepository) : ViewModel() {
 
@@ -16,4 +17,10 @@ class HomeViewModel(private val repo: ChatRepository) : ViewModel() {
             started      = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+
+    fun deleteChat(chatId: String) {
+        viewModelScope.launch {
+            repo.deleteChat(chatId)
+        }
+    }
 }

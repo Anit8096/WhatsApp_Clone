@@ -1,5 +1,7 @@
 package com.android.whatsapp.presentation.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,22 +17,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.android.whatsapp.model.dataclass.Chat
 import com.android.whatsapp.ui.theme.*
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import org.koin.compose.viewmodel.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onOpenConversation: (chatId: String, peerName: String, peerAvatar: String) -> Unit,
-    onOpenNewChat  : () -> Unit,        // ← wires FAB to NewChatScreen
+    onOpenNewChat  : () -> Unit,
     onOpenCamera   : () -> Unit,
     onOpenStatus   : () -> Unit,
     onOpenCalls    : () -> Unit,
@@ -93,7 +101,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick        = onOpenNewChat,   // ← fixed
+                onClick        = onOpenNewChat,
                 containerColor = Green500,
                 contentColor   = Color.White,
                 shape          = CircleShape
@@ -103,47 +111,85 @@ fun HomeScreen(
         },
         containerColor = Surface900
     ) { innerPadding ->
-        ChatsTab(
-            chats    = chats,
-            modifier = Modifier.padding(innerPadding),
-            onOpenConversation = onOpenConversation
-        )
-    }
-}
-
-@Composable
-private fun ChatsTab(
-    chats: List<Chat>,
-    modifier: Modifier = Modifier,
-    onOpenConversation: (String, String, String) -> Unit
-) {
-    if (chats.isEmpty()) {
-        EmptyChatsPlaceholder(modifier = modifier.fillMaxSize())
-    } else {
-        LazyColumn(modifier = modifier) {
-            items(chats, key = { it.id }) { chat ->
-                ChatRow(chat = chat, onClick = {
-                    onOpenConversation(chat.id, chat.peerName, chat.peerAvatar)
-                })
-                HorizontalDivider(
-                    color     = DividerColor,
-                    thickness = 0.5.dp,
-                    modifier  = Modifier.padding(start = 80.dp)
-                )
+        if (chats.isEmpty()) {
+            EmptyChatsPlaceholder(modifier = Modifier.padding(innerPadding).fillMaxSize())
+        } else {
+            LazyColumn(modifier = Modifier.padding(innerPadding)) {
+                items(chats, key = { it.id }) { chat ->
+                    // Swipe to delete
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                viewModel.deleteChat(chat.id)
+                                true
+                            } else false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state            = dismissState,
+                        modifier         = Modifier.animateItem(),
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            val color by animateColorAsState(
+                                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
+                                    Color(0xFFE53935) else Surface800,
+                                label = "swipe_bg"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(color)
+                                    .padding(end = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
+                            }
+                        }
+                    ) {
+                        ChatRow(
+                            chat    = chat,
+                            onClick = { onOpenConversation(chat.id, chat.peerName, chat.peerAvatar) }
+                        )
+                    }
+                    HorizontalDivider(
+                        color     = DividerColor,
+                        thickness = 0.5.dp,
+                        modifier  = Modifier.padding(start = 80.dp)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChatRow(chat: Chat, onClick: () -> Unit) {
+fun ChatRow(chat: Chat, onClick: () -> Unit) {
+    // Live online status — updates without relaunch
+    var isOnline by remember(chat.peerId) { mutableStateOf(chat.isOnline) }
+
+    DisposableEffect(chat.peerId) {
+        if (chat.peerId.isBlank()) return@DisposableEffect onDispose {}
+        val ref = FirebaseDatabase.getInstance()
+            .reference.child("users").child(chat.peerId).child("isOnline")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snap: DataSnapshot) {
+                isOnline = snap.getValue(Boolean::class.java) ?: false
+            }
+            override fun onCancelled(e: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        onDispose { ref.removeEventListener(listener) }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Surface900)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Avatar with online dot
         Box(
             modifier = Modifier
                 .size(52.dp)
@@ -151,13 +197,22 @@ private fun ChatRow(chat: Chat, onClick: () -> Unit) {
                 .background(Surface700),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text       = chat.peerName.firstOrNull()?.uppercase() ?: "?",
-                color      = TextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize   = 20.sp
-            )
-            if (chat.isOnline) {
+            if (chat.peerAvatar.isNotBlank()) {
+                AsyncImage(
+                    model              = chat.peerAvatar,
+                    contentDescription = "Avatar",
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                )
+            } else {
+                Text(
+                    text       = chat.peerName.firstOrNull()?.uppercase() ?: "?",
+                    color      = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 20.sp
+                )
+            }
+            if (isOnline) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -206,7 +261,7 @@ private fun ChatRow(chat: Chat, onClick: () -> Unit) {
                     ) {
                         Text(
                             text       = chat.unreadCount.coerceAtMost(99).toString(),
-                            color      = Color.White,
+                            color      = androidx.compose.ui.graphics.Color.White,
                             fontSize   = 11.sp,
                             fontWeight = FontWeight.Bold
                         )

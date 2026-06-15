@@ -13,4 +13,6 @@ interface ChatRepository {
     suspend fun sendMediaMessage(chatId: String, uri: Uri, type: MessageType, fileName: String = ""): Result<Unit>
     suspend fun markAsRead(chatId: String): Result<Unit>
     suspend fun createOrGetChat(peerId: String): Result<String>
+    suspend fun updatePeerNameInAllChats(uid: String, newName: String)
+    suspend fun deleteChat(chatId: String): Result<Unit>   // ← new
 }
