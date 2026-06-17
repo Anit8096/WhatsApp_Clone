@@ -3,6 +3,7 @@ package com.android.whatsapp.presentation.home
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -190,39 +191,7 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Avatar with online dot
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(Surface700),
-            contentAlignment = Alignment.Center
-        ) {
-            if (chat.peerAvatar.isNotBlank()) {
-                AsyncImage(
-                    model              = chat.peerAvatar,
-                    contentDescription = "Avatar",
-                    contentScale       = ContentScale.Crop,
-                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                )
-            } else {
-                Text(
-                    text       = chat.peerName.firstOrNull()?.uppercase() ?: "?",
-                    color      = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 20.sp
-                )
-            }
-            if (isOnline) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .size(14.dp)
-                        .background(Surface900, CircleShape)
-                        .padding(2.dp)
-                        .background(OnlineGreen, CircleShape)
-                )
-            }
-        }
+        ChatRowAvatar(chat.peerName, chat.peerAvatar, chat.isOnline)
 
         Spacer(Modifier.width(12.dp))
 
@@ -261,13 +230,56 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
                     ) {
                         Text(
                             text       = chat.unreadCount.coerceAtMost(99).toString(),
-                            color      = androidx.compose.ui.graphics.Color.White,
+                            color      = Color.White,
                             fontSize   = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ChatRowAvatar(peerName: String, peerAvatar: String, isOnline: Boolean) {
+    // Outer Box is NOT clipped — so the dot can overflow
+    Box(modifier = Modifier.size(52.dp)) {
+
+        // Avatar — clipped to circle
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Surface700),
+            contentAlignment = Alignment.Center
+        ) {
+            if (peerAvatar.isNotBlank()) {
+                AsyncImage(
+                    model              = peerAvatar,
+                    contentDescription = "Avatar",
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(
+                    text       = peerName.firstOrNull()?.uppercase() ?: "?",
+                    color      = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 20.sp
+                )
+            }
+        }
+
+        // Online dot — positioned at bottom-end of the outer Box, NOT inside clip
+        if (isOnline) {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .align(Alignment.BottomEnd)
+                    .border(2.dp, Surface900, CircleShape)
+                    .background(OnlineGreen, CircleShape)
+            )
         }
     }
 }

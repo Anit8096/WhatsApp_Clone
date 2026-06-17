@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -401,10 +402,22 @@ private fun MessageInputBar(viewModel: ConversationViewModel) {
                     .padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                AttachOption(Icons.Default.Image,           "Image",    Color(0xFF7C4DFF)) { imagePicker.launch("image/*");    showAttachMenu = false }
-                AttachOption(Icons.Default.Videocam,        "Video",    Color(0xFFFF6D00)) { videoPicker.launch("video/*");    showAttachMenu = false }
-                AttachOption(Icons.AutoMirrored.Filled.InsertDriveFile, "Doc", Color(0xFF0097A7)) { docPicker.launch("*/*"); showAttachMenu = false }
-                AttachOption(Icons.Default.AudioFile,       "Audio",    Color(0xFFD32F2F)) { docPicker.launch("audio/*");     showAttachMenu = false }
+                AttachOption(Icons.Default.Image,"Image", Color(0xFF7C4DFF)) {
+                    imagePicker.launch("image/*");
+                    showAttachMenu = false
+                }
+                AttachOption(Icons.Default.Videocam, "Video", Color(0xFFFF6D00)) {
+                    videoPicker.launch("video/*");
+                    showAttachMenu = false
+                }
+                AttachOption(Icons.AutoMirrored.Filled.InsertDriveFile, "Doc", Color(0xFF0097A7)) {
+                    docPicker.launch("*/*");
+                    showAttachMenu = false
+                }
+                AttachOption(Icons.Default.AudioFile, "Audio", Color(0xFFD32F2F)) {
+                    docPicker.launch("audio/*");
+                    showAttachMenu = false
+                }
             }
         }
 
@@ -512,7 +525,7 @@ private fun MessageInputBar(viewModel: ConversationViewModel) {
 
 @Composable
 private fun AttachOption(
-    icon   : androidx.compose.ui.graphics.vector.ImageVector,
+    icon   : ImageVector,
     label  : String,
     color  : Color,
     onClick: () -> Unit
