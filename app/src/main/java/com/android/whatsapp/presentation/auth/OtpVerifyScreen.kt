@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,14 +26,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.whatsapp.ui.theme.*
+import com.android.whatsapp.ui.theme.LocalAppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpVerifyScreen(
     phoneNumber   : String,
-    onVerified    : () -> Unit,   // new user → go to ProfileSetup
-    onExistingUser: () -> Unit,   // returning user → go to Home
+    onVerified    : () -> Unit,
+    onExistingUser: () -> Unit,
     onBack        : () -> Unit,
     viewModel     : AuthViewModel
 ) {
@@ -42,19 +43,18 @@ fun OtpVerifyScreen(
     var awaitingVerify by remember { mutableStateOf(false) }
     val focusRequester  = remember { FocusRequester() }
     val activity        = LocalActivity.current as Activity
+    val colors          = LocalAppColors.current
 
     BackHandler(enabled = isLoading) { }
 
     LaunchedEffect(uiState, awaitingVerify) {
         when {
             awaitingVerify && uiState is AuthUiState.Success -> {
-                // New user — go to profile setup
                 awaitingVerify = false
                 viewModel.resetState()
                 onVerified()
             }
             awaitingVerify && uiState is AuthUiState.ExistingUser -> {
-                // Returning user — skip profile setup
                 awaitingVerify = false
                 viewModel.resetState()
                 onExistingUser()
@@ -74,24 +74,17 @@ fun OtpVerifyScreen(
                 navigationIcon = {
                     if (!isLoading) {
                         IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = TextPrimary
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface900)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = Surface900
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 32.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(48.dp))
@@ -100,22 +93,20 @@ fun OtpVerifyScreen(
             Text(
                 "Enter the 6-digit code sent to\n$phoneNumber",
                 style     = MaterialTheme.typography.bodyMedium,
-                color     = TextSecondary,
+                color     = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(48.dp))
 
-            // Hidden real input
             BasicTextField(
                 value         = otp,
                 onValueChange = { if (it.length <= 6 && !isLoading) otp = it },
                 modifier      = Modifier.size(1.dp).focusRequester(focusRequester),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                cursorBrush   = SolidColor(Green500),
+                cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
                 enabled       = !isLoading
             )
 
-            // 6 boxes
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 repeat(6) { index ->
                     val char      = otp.getOrNull(index)
@@ -123,20 +114,20 @@ fun OtpVerifyScreen(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .background(Surface800, RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
                             .border(
                                 width = if (isFocused) 2.dp else 1.dp,
-                                color = if (isFocused) Green500 else Surface600,
+                                color = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                 shape = RoundedCornerShape(10.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading && index < otp.length) {
-                            Box(Modifier.size(8.dp).background(TextSecondary, RoundedCornerShape(4.dp)))
+                            Box(Modifier.size(8.dp).background(colors.textSecondary, RoundedCornerShape(4.dp)))
                         } else {
                             Text(
                                 text       = char?.toString() ?: "",
-                                color      = TextPrimary,
+                                color      = MaterialTheme.colorScheme.onSurface,
                                 fontSize   = 22.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -148,39 +139,29 @@ fun OtpVerifyScreen(
             Spacer(Modifier.height(40.dp))
 
             Button(
-                onClick = {
-                    awaitingVerify = true
-                    viewModel.verifyOtp(otp)
-                },
+                onClick = { awaitingVerify = true; viewModel.verifyOtp(otp) },
                 enabled  = otp.length == 6 && !isLoading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(14.dp),
-                colors   = ButtonDefaults.buttonColors(containerColor = Green500)
+                colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier    = Modifier.size(20.dp),
-                        color       = androidx.compose.ui.graphics.Color.White,
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = White, strokeWidth = 2.dp)
                 } else {
-                    Text("Verify", color = androidx.compose.ui.graphics.Color.White)
+                    Text("Verify", color = White)
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            TextButton(
-                onClick = { viewModel.resendOtp(phoneNumber, activity) },
-                enabled = !isLoading
-            ) {
-                Text("Resend code", color = if (isLoading) TextTertiary else Green500)
+            TextButton(onClick = { viewModel.resendOtp(phoneNumber, activity) }, enabled = !isLoading) {
+                Text("Resend code", color = if (isLoading) colors.textTertiary else MaterialTheme.colorScheme.primary)
             }
 
             AnimatedVisibility(uiState is AuthUiState.Error) {
                 (uiState as? AuthUiState.Error)?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(it.message, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
+                    Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

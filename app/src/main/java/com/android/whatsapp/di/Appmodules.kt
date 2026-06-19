@@ -7,6 +7,7 @@ import com.android.whatsapp.presentation.home.HomeViewModel
 import com.android.whatsapp.presentation.newchat.NewChatViewModel
 import com.android.whatsapp.presentation.profile.ProfileViewModel
 import com.android.whatsapp.presentation.settings.SettingsViewModel
+import com.android.whatsapp.ui.theme.ThemePreferenceRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.storage.FirebaseStorage
@@ -44,4 +45,8 @@ val profileModule = module {
     viewModelOf(::SettingsViewModel)
 }
 
-val appModules = listOf(firebaseModule, authModule, userModule, chatModule, profileModule)
+val themeModule = module {
+    single { ThemePreferenceRepository(get()) }
+}
+
+val appModules = listOf(firebaseModule, authModule, userModule, chatModule, profileModule, themeModule)

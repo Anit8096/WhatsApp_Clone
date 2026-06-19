@@ -1,5 +1,6 @@
 package com.android.whatsapp.presentation.home
 
+import androidx.compose.animation.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
@@ -17,20 +20,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.android.whatsapp.model.dataclass.Chat
-import com.android.whatsapp.ui.theme.*
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import com.android.whatsapp.ui.theme.AppColors
+import com.android.whatsapp.ui.theme.LocalAppColors
 import org.koin.compose.viewmodel.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,117 +50,156 @@ fun HomeScreen(
     onOpenProfile  : () -> Unit,
     onOpenSettings : () -> Unit,
 ) {
-    val viewModel: HomeViewModel = koinViewModel()
-    val chats by viewModel.chats.collectAsStateWithLifecycle()
+    val viewModel  : HomeViewModel = koinViewModel()
+    val chats      by viewModel.chats.collectAsStateWithLifecycle()
+    val colors      = LocalAppColors.current
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    var searchActive by remember { mutableStateOf(false) }
+    var searchQuery  by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager   = LocalFocusManager.current
+
+    val filteredChats = remember(chats, searchQuery) {
+        if (searchQuery.isBlank()) chats
+        else chats.filter { it.peerName.contains(searchQuery, ignoreCase = true) }
+    }
+
+    LaunchedEffect(searchActive) {
+        if (searchActive) focusRequester.requestFocus()
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
+            Column {
+                TopAppBar(
+                    title = {
+                        AnimatedContent(
+                            targetState = searchActive,
+                            transitionSpec = {
+                                fadeIn() + slideInHorizontally() togetherWith
+                                        fadeOut() + slideOutHorizontally()
+                            },
+                            label = "topbar_content"
+                        ) { isSearching ->
+                            if (isSearching) {
+                                OutlinedTextField(
+                                    value         = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    modifier      = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                                    placeholder   = { Text("Search chats...", color = colors.textTertiary) },
+                                    singleLine    = true,
+                                    colors        = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor      = Color.Transparent,
+                                        unfocusedBorderColor    = Color.Transparent,
+                                        focusedContainerColor   = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedTextColor        = colors.textPrimary,
+                                        unfocusedTextColor      = colors.textPrimary,
+                                        cursorColor             = MaterialTheme.colorScheme.primary
+                                    ),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
+                                )
+                            } else {
+                                Text(text = "WhatsApp", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        if (searchActive) {
+                            IconButton(onClick = { searchActive = false; searchQuery = ""; focusManager.clearFocus() }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Close search", tint = colors.textPrimary)
+                            }
+                        }
+                    },
+                    actions = {
+                        if (!searchActive) {
+                            IconButton(onClick = onOpenCamera) { Icon(Icons.Default.CameraAlt, contentDescription = "Camera", tint = colors.textPrimary) }
+                            IconButton(onClick = { searchActive = true }) { Icon(Icons.Default.Search, contentDescription = "Search", tint = colors.textPrimary) }
+                            IconButton(onClick = onOpenSettings) { Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = colors.textPrimary) }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface800)
+                )
+                AnimatedVisibility(visible = searchActive && searchQuery.isNotBlank()) {
                     Text(
-                        text       = "WhatsApp",
-                        color      = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = 20.sp
+                        text     = "${filteredChats.size} result${if (filteredChats.size == 1) "" else "s"}",
+                        color    = colors.textSecondary,
+                        style    = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.background(colors.surface800).fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     )
-                },
-                actions = {
-                    IconButton(onClick = onOpenCamera) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = "Camera", tint = TextPrimary)
-                    }
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = TextPrimary)
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = TextPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface800)
-            )
+                }
+            }
         },
         bottomBar = {
-            NavigationBar(containerColor = Surface800, tonalElevation = 0.dp) {
+            NavigationBar(containerColor = colors.surface800, tonalElevation = 0.dp) {
                 BottomNavItem.entries.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
-                        onClick  = {
-                            selectedTab = index
-                            when (index) {
-                                1 -> onOpenStatus()
-                                2 -> onOpenCalls()
-                            }
-                        },
+                        onClick  = { selectedTab = index; when (index) { 1 -> onOpenStatus(); 2 -> onOpenCalls() } },
                         icon  = { Icon(item.icon, contentDescription = item.label) },
                         label = { Text(item.label, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor   = Green500,
-                            selectedTextColor   = Green500,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor      = Surface700
+                            selectedIconColor   = MaterialTheme.colorScheme.primary,
+                            selectedTextColor   = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = colors.textSecondary,
+                            unselectedTextColor = colors.textSecondary,
+                            indicatorColor      = colors.surface700
                         )
                     )
                 }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick        = onOpenNewChat,
-                containerColor = Green500,
-                contentColor   = Color.White,
-                shape          = CircleShape
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "New chat")
+            if (!searchActive) {
+                FloatingActionButton(onClick = onOpenNewChat, containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White, shape = CircleShape) {
+                    Icon(Icons.Default.Edit, contentDescription = "New chat")
+                }
             }
         },
-        containerColor = Surface900
+        containerColor = colors.surface900
     ) { innerPadding ->
-        if (chats.isEmpty()) {
-            EmptyChatsPlaceholder(modifier = Modifier.padding(innerPadding).fillMaxSize())
-        } else {
-            LazyColumn(modifier = Modifier.padding(innerPadding)) {
-                items(chats, key = { it.id }) { chat ->
-                    // Swipe to delete
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.deleteChat(chat.id)
-                                true
-                            } else false
-                        }
-                    )
-                    SwipeToDismissBox(
-                        state            = dismissState,
-                        modifier         = Modifier.animateItem(),
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            val color by animateColorAsState(
-                                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
-                                    Color(0xFFE53935) else Surface800,
-                                label = "swipe_bg"
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(color)
-                                    .padding(end = 20.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
-                            }
-                        }
-                    ) {
-                        ChatRow(
-                            chat    = chat,
-                            onClick = { onOpenConversation(chat.id, chat.peerName, chat.peerAvatar) }
-                        )
+        when {
+            filteredChats.isEmpty() && searchQuery.isNotBlank() -> {
+                Box(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.SearchOff, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(64.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No chats found for \"$searchQuery\"", color = colors.textSecondary)
                     }
-                    HorizontalDivider(
-                        color     = DividerColor,
-                        thickness = 0.5.dp,
-                        modifier  = Modifier.padding(start = 80.dp)
-                    )
+                }
+            }
+            chats.isEmpty() -> EmptyChatsPlaceholder(modifier = Modifier.padding(innerPadding).fillMaxSize())
+            else -> {
+                LazyColumn(modifier = Modifier.padding(innerPadding)) {
+                    items(filteredChats, key = { it.id }) { chat ->
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) { viewModel.deleteChat(chat.id); true } else false
+                            }
+                        )
+                        SwipeToDismissBox(
+                            state                      = dismissState,
+                            modifier                   = Modifier.animateItem(),
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = {
+                                val bgColor by animateColorAsState(
+                                    targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFE53935) else colors.surface800,
+                                    label = "swipe_bg"
+                                )
+                                Box(modifier = Modifier.fillMaxSize().background(bgColor).padding(end = 20.dp), contentAlignment = Alignment.CenterEnd) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
+                                        Text("Delete", color = Color.White, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        ) {
+                            ChatRow(chat = chat, onClick = { onOpenConversation(chat.id, chat.peerName, chat.peerAvatar) })
+                        }
+                        HorizontalDivider(color = colors.dividerColor, thickness = 0.5.dp, modifier = Modifier.padding(start = 80.dp))
+                    }
                 }
             }
         }
@@ -165,36 +208,17 @@ fun HomeScreen(
 
 @Composable
 fun ChatRow(chat: Chat, onClick: () -> Unit) {
-    // Live online status — updates without relaunch
-    var isOnline by remember(chat.peerId) { mutableStateOf(chat.isOnline) }
-
-    DisposableEffect(chat.peerId) {
-        if (chat.peerId.isBlank()) return@DisposableEffect onDispose {}
-        val ref = FirebaseDatabase.getInstance()
-            .reference.child("users").child(chat.peerId).child("isOnline")
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snap: DataSnapshot) {
-                isOnline = snap.getValue(Boolean::class.java) ?: false
-            }
-            override fun onCancelled(e: DatabaseError) {}
-        }
-        ref.addValueEventListener(listener)
-        onDispose { ref.removeEventListener(listener) }
-    }
-
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Surface900)
+            .background(colors.surface900)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar with online dot
         ChatRowAvatar(chat.peerName, chat.peerAvatar, chat.isOnline)
-
         Spacer(Modifier.width(12.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -207,7 +231,7 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
                 Text(
                     text  = formatTimestamp(chat.lastMessageTime),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (chat.unreadCount > 0) Green500 else TextTertiary
+                    color = if (chat.unreadCount > 0) MaterialTheme.colorScheme.primary else colors.textTertiary
                 )
             }
             Spacer(Modifier.height(2.dp))
@@ -215,25 +239,15 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
                 Text(
                     text     = chat.lastMessage,
                     style    = MaterialTheme.typography.bodySmall,
-                    color    = TextSecondary,
+                    color    = colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
                 if (chat.unreadCount > 0) {
                     Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .background(UnreadBadge, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text       = chat.unreadCount.coerceAtMost(99).toString(),
-                            color      = Color.White,
-                            fontSize   = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Box(modifier = Modifier.size(20.dp).background(colors.unreadBadge, CircleShape), contentAlignment = Alignment.Center) {
+                        Text(text = chat.unreadCount.coerceAtMost(99).toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -243,42 +257,25 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
 
 @Composable
 fun ChatRowAvatar(peerName: String, peerAvatar: String, isOnline: Boolean) {
-    // Outer Box is NOT clipped — so the dot can overflow
+    val colors = LocalAppColors.current
     Box(modifier = Modifier.size(52.dp)) {
-
-        // Avatar — clipped to circle
         Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(Surface700),
+            modifier = Modifier.size(52.dp).clip(CircleShape).background(colors.surface700),
             contentAlignment = Alignment.Center
         ) {
             if (peerAvatar.isNotBlank()) {
-                AsyncImage(
-                    model              = peerAvatar,
-                    contentDescription = "Avatar",
-                    contentScale       = ContentScale.Crop,
-                    modifier           = Modifier.fillMaxSize()
-                )
+                AsyncImage(model = peerAvatar, contentDescription = "Avatar", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
-                Text(
-                    text       = peerName.firstOrNull()?.uppercase() ?: "?",
-                    color      = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 20.sp
-                )
+                Text(text = peerName.firstOrNull()?.uppercase() ?: "?", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
-
-        // Online dot — positioned at bottom-end of the outer Box, NOT inside clip
         if (isOnline) {
             Box(
                 modifier = Modifier
                     .size(14.dp)
                     .align(Alignment.BottomEnd)
-                    .border(2.dp, Surface900, CircleShape)
-                    .background(OnlineGreen, CircleShape)
+                    .border(2.dp, colors.surface900, CircleShape)
+                    .background(colors.onlineGreen, CircleShape)
             )
         }
     }
@@ -286,33 +283,22 @@ fun ChatRowAvatar(peerName: String, peerAvatar: String, isOnline: Boolean) {
 
 @Composable
 private fun EmptyChatsPlaceholder(modifier: Modifier = Modifier) {
+    val colors = LocalAppColors.current
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector        = Icons.Default.ChatBubbleOutline,
-                contentDescription = null,
-                tint               = Surface600,
-                modifier           = Modifier.size(72.dp)
-            )
+            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(72.dp))
             Spacer(Modifier.height(16.dp))
-            Text("No chats yet", color = TextSecondary, style = MaterialTheme.typography.bodyLarge)
+            Text("No chats yet", color = colors.textSecondary, style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Tap the pencil icon to start a conversation",
-                color = TextTertiary,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text("Tap the pencil icon to start a conversation", color = colors.textTertiary, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
-private enum class BottomNavItem(
-    val label: String,
-    val icon : androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Chats ("Chats",  Icons.AutoMirrored.Filled.Chat),
+private enum class BottomNavItem(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Chats("Chats",   Icons.AutoMirrored.Filled.Chat),
     Status("Status", Icons.Default.RadioButtonUnchecked),
-    Calls ("Calls",  Icons.Default.Call)
+    Calls("Calls",   Icons.Default.Call)
 }
 
 private fun formatTimestamp(timestamp: Long): String {

@@ -9,7 +9,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.android.whatsapp.presentation.auth.AuthUiState
+import com.android.whatsapp.model.dataclass.MessageType
 import com.android.whatsapp.presentation.auth.AuthViewModel
 import com.android.whatsapp.presentation.auth.OtpVerifyScreen
 import com.android.whatsapp.presentation.auth.PhoneEntryScreen
@@ -17,12 +17,14 @@ import com.android.whatsapp.presentation.auth.ProfileSetupScreen
 import com.android.whatsapp.presentation.calls.CallsScreen
 import com.android.whatsapp.presentation.camera.CameraScreen
 import com.android.whatsapp.presentation.chat.ConversationScreen
+import com.android.whatsapp.presentation.chat.ConversationViewModel
 import com.android.whatsapp.presentation.home.HomeScreen
 import com.android.whatsapp.presentation.newchat.NewChatScreen
 import com.android.whatsapp.presentation.profile.ProfileScreen
 import com.android.whatsapp.presentation.settings.SettingsScreen
 import com.android.whatsapp.presentation.status.StatusScreen
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun AppNavGraph() {
@@ -62,8 +64,6 @@ fun AppNavGraph() {
             entry<AuthGraph.OtpVerifyRoute> { route ->
                 OtpVerifyScreen(
                     phoneNumber    = route.phoneNumber,
-                    // Success = new user → ProfileSetup
-                    // ExistingUser = returning user → Home directly
                     onVerified     = { navigateTo(AuthGraph.ProfileSetupRoute) },
                     onExistingUser = { navigateTo(MainGraph.HomeRoute) },
                     onBack         = { backStack.removeLastOrNull() },
@@ -86,7 +86,7 @@ fun AppNavGraph() {
                         backStack.add(MainGraph.ConversationRoute(chatId, name, avatar))
                     },
                     onOpenNewChat  = { backStack.add(MainGraph.NewChatRoute) },
-                    onOpenCamera   = { backStack.add(MainGraph.CameraRoute) },
+                    onOpenCamera   = { backStack.add(MainGraph.CameraRoute()) },
                     onOpenStatus   = { backStack.add(MainGraph.StatusRoute) },
                     onOpenCalls    = { backStack.add(MainGraph.CallsRoute) },
                     onOpenProfile  = { backStack.add(MainGraph.ProfileRoute) },
@@ -110,7 +110,9 @@ fun AppNavGraph() {
                     peerName    = route.peerName,
                     peerAvatar  = route.peerAvatar,
                     onBack      = { backStack.removeLastOrNull() },
-                    onVoiceCall = { backStack.add(MainGraph.CallsRoute) }
+                    onVoiceCall = { backStack.add(MainGraph.CallsRoute) },
+                    // Camera launched from conversation passes chatId
+                    onOpenCamera = { backStack.add(MainGraph.CameraRoute(route.chatId)) }
                 )
             }
 
@@ -122,10 +124,23 @@ fun AppNavGraph() {
                 CallsScreen(onBack = { backStack.removeLastOrNull() })
             }
 
-            entry<MainGraph.CameraRoute> {
+            entry<MainGraph.CameraRoute> { route ->
+                // Get ConversationViewModel only if launched from chat
+                val conversationViewModel = if (route.chatId.isNotBlank()) {
+                    koinViewModel<ConversationViewModel>(
+                        parameters = { parametersOf(route.chatId) }
+                    )
+                } else null
+
                 CameraScreen(
                     onBack    = { backStack.removeLastOrNull() },
-                    onCapture = { backStack.removeLastOrNull() }
+                    onCapture = { uri ->
+                        if (conversationViewModel != null) {
+                            // Send directly as image message
+                            conversationViewModel.sendMedia(uri, MessageType.IMAGE)
+                        }
+                        backStack.removeLastOrNull()
+                    }
                 )
             }
 

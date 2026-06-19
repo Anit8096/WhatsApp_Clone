@@ -102,4 +102,10 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.video)
     implementation(libs.androidx.camera.view)
+
+    // Work Manager
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Data Store Prefrences
+    implementation(libs.androidx.datastore.preferences)
 }

@@ -9,7 +9,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -23,12 +24,10 @@ class FirebaseChatRepository(
     private val uid get() = auth.currentUser?.uid ?: ""
 
     // ── Observe chat list with live presence ──────────────────
+
     override fun observeChats(): Flow<List<Chat>> = callbackFlow {
         val ref = database.reference.child("user_chats").child(uid)
-
-        // Track active presence listeners so we can clean them up
         val presenceListeners = mutableMapOf<String, Pair<DatabaseReference, ValueEventListener>>()
-        // Current chat list snapshot
         var currentChats = listOf<Chat>()
 
         fun emitEnriched() {
@@ -38,16 +37,12 @@ class FirebaseChatRepository(
         val chatListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val rawChats = snapshot.children.mapNotNull { it.getValue(Chat::class.java) }
-
-                // Remove presence listeners for peers no longer in chat list
                 val newPeerIds = rawChats.map { it.peerId }.toSet()
                 presenceListeners.keys.filter { it !in newPeerIds }.forEach { oldPeerId ->
                     val (oldRef, oldListener) = presenceListeners.remove(oldPeerId) ?: return@forEach
                     oldRef.removeEventListener(oldListener)
                 }
-
                 launch {
-                    // Enrich with live displayName and avatarUrl from /users
                     val enriched = rawChats.map { chat ->
                         runCatching {
                             val snap = database.reference.child("users").child(chat.peerId).get().await()
@@ -62,7 +57,6 @@ class FirebaseChatRepository(
                     }
                     currentChats = enriched
 
-                    // Attach a live presence listener for each peer not yet tracked
                     enriched.forEach { chat ->
                         if (chat.peerId.isNotBlank() && !presenceListeners.containsKey(chat.peerId)) {
                             val presenceRef = database.reference
@@ -70,7 +64,6 @@ class FirebaseChatRepository(
                             val presenceListener = object : ValueEventListener {
                                 override fun onDataChange(snap: DataSnapshot) {
                                     val online = snap.getValue(Boolean::class.java) ?: false
-                                    // Update just this chat's isOnline in current list
                                     currentChats = currentChats.map { c ->
                                         if (c.peerId == chat.peerId) c.copy(isOnline = online) else c
                                     }
@@ -82,7 +75,6 @@ class FirebaseChatRepository(
                             presenceListeners[chat.peerId] = presenceRef to presenceListener
                         }
                     }
-
                     emitEnriched()
                 }
             }
@@ -90,22 +82,25 @@ class FirebaseChatRepository(
         }
 
         ref.addValueEventListener(chatListener)
-
         awaitClose {
             ref.removeEventListener(chatListener)
-            // Clean up all presence listeners
-            presenceListeners.values.forEach { (presRef, listener) ->
-                presRef.removeEventListener(listener)
-            }
+            presenceListeners.values.forEach { (r, l) -> r.removeEventListener(l) }
         }
     }
 
-    // ── Observe messages ──────────────────────────────────────
+    // ── Observe messages with readBy ──────────────────────────
+
     override fun observeMessages(chatId: String): Flow<List<Message>> = callbackFlow {
         val ref = database.reference.child("messages").child(chatId)
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val messages = snapshot.children.mapNotNull { it.getValue(Message::class.java) }
+                val messages = snapshot.children.mapNotNull { msgSnap ->
+                    val msg = msgSnap.getValue(Message::class.java) ?: return@mapNotNull null
+                    // Parse readBy map manually — Firebase deserialises Long values
+                    val readBy = msgSnap.child("readBy").children
+                        .associate { it.key!! to (it.getValue(Long::class.java) ?: 0L) }
+                    msg.copy(readBy = readBy)
+                }
                 trySend(messages.sortedBy { it.timestamp })
             }
             override fun onCancelled(error: DatabaseError) { close(error.toException()) }
@@ -115,6 +110,7 @@ class FirebaseChatRepository(
     }
 
     // ── Send text ─────────────────────────────────────────────
+
     override suspend fun sendTextMessage(chatId: String, text: String): Result<Unit> =
         runCatching {
             val msgId   = UUID.randomUUID().toString()
@@ -127,11 +123,13 @@ class FirebaseChatRepository(
                 status    = MessageStatus.SENT,
                 timestamp = System.currentTimeMillis()
             )
-            database.reference.child("messages").child(chatId).child(msgId).setValue(message).await()
+            database.reference.child("messages").child(chatId).child(msgId)
+                .setValue(message).await()
             updateChatPreview(chatId, text)
         }
 
     // ── Send media ────────────────────────────────────────────
+
     override suspend fun sendMediaMessage(
         chatId  : String,
         uri     : Uri,
@@ -152,7 +150,8 @@ class FirebaseChatRepository(
             timestamp = System.currentTimeMillis(),
             fileName  = fileName
         )
-        database.reference.child("messages").child(chatId).child(msgId).setValue(message).await()
+        database.reference.child("messages").child(chatId).child(msgId)
+            .setValue(message).await()
         val preview = when (type) {
             MessageType.IMAGE    -> "📷 Photo"
             MessageType.AUDIO    -> "🎤 Voice message"
@@ -164,28 +163,27 @@ class FirebaseChatRepository(
     }
 
     // ── Mark as read ──────────────────────────────────────────
+
     override suspend fun markAsRead(chatId: String): Result<Unit> = runCatching {
         database.reference.child("user_chats").child(uid).child(chatId)
             .child("unreadCount").setValue(0).await()
     }
 
     // ── Create or get chat ────────────────────────────────────
+
     override suspend fun createOrGetChat(peerId: String): Result<String> = runCatching {
         val chatId = listOf(uid, peerId).sorted().joinToString("_")
         val myRef  = database.reference.child("user_chats").child(uid).child(chatId)
         val snap   = myRef.get().await()
-
         if (!snap.exists()) {
             val peerSnap   = database.reference.child("users").child(peerId).get().await()
             val peerName   = peerSnap.child("displayName").getValue(String::class.java) ?: ""
             val peerAvatar = peerSnap.child("avatarUrl").getValue(String::class.java) ?: ""
-
             val mySnap   = database.reference.child("users").child(uid).get().await()
             val myName   = mySnap.child("displayName").getValue(String::class.java)
                 ?: auth.currentUser?.displayName ?: ""
             val myAvatar = mySnap.child("avatarUrl").getValue(String::class.java)
                 ?: auth.currentUser?.photoUrl?.toString() ?: ""
-
             myRef.setValue(Chat(id = chatId, peerId = peerId, peerName = peerName, peerAvatar = peerAvatar)).await()
             database.reference.child("user_chats").child(peerId).child(chatId)
                 .setValue(Chat(id = chatId, peerId = uid, peerName = myName, peerAvatar = myAvatar)).await()
@@ -194,11 +192,13 @@ class FirebaseChatRepository(
     }
 
     // ── Delete chat ───────────────────────────────────────────
+
     override suspend fun deleteChat(chatId: String): Result<Unit> = runCatching {
         database.reference.child("user_chats").child(uid).child(chatId).removeValue().await()
     }
 
     // ── Update peer name ──────────────────────────────────────
+
     override suspend fun updatePeerNameInAllChats(uid: String, newName: String) {
         val myChats = database.reference.child("user_chats").child(uid).get().await()
         for (chatSnap in myChats.children) {
@@ -210,6 +210,7 @@ class FirebaseChatRepository(
     }
 
     // ── Helpers ───────────────────────────────────────────────
+
     private suspend fun updateChatPreview(chatId: String, preview: String) {
         val time         = System.currentTimeMillis()
         val participants = chatId.split("_")

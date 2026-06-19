@@ -24,7 +24,7 @@ import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.whatsapp.R
 import com.android.whatsapp.model.repository.OtpSession
-import com.android.whatsapp.ui.theme.*
+import com.android.whatsapp.ui.theme.LocalAppColors
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -41,6 +41,7 @@ fun PhoneEntryScreen(
     val isLoading  = uiState is AuthUiState.Loading
     val activity   = LocalActivity.current as Activity
     val scope      = rememberCoroutineScope()
+    val colors     = LocalAppColors.current
 
     var phone       by remember { mutableStateOf("") }
     var countryCode by remember { mutableStateOf("+91") }
@@ -52,51 +53,34 @@ fun PhoneEntryScreen(
 
     LaunchedEffect(uiState, awaitingOtpRequest, awaitingGoogleSignIn) {
         when {
-            // Phone OTP flow
             awaitingOtpRequest && uiState is AuthUiState.Success -> {
                 awaitingOtpRequest = false
                 viewModel.resetState()
-                if (OtpSession.verificationId.isNotBlank()) {
-                    onNavigateToOtp("$countryCode$phone")
-                } else {
-                    onPhoneAuthSuccess()
-                }
+                if (OtpSession.verificationId.isNotBlank()) onNavigateToOtp("$countryCode$phone")
+                else onPhoneAuthSuccess()
             }
-            awaitingOtpRequest && uiState is AuthUiState.Error -> {
-                awaitingOtpRequest = false
-            }
-
-            // Google sign-in — now emits ExistingUser (Google accounts always have a profile)
+            awaitingOtpRequest && uiState is AuthUiState.Error -> { awaitingOtpRequest = false }
             awaitingGoogleSignIn && uiState is AuthUiState.ExistingUser -> {
-                awaitingGoogleSignIn = false
-                viewModel.resetState()
-                onGoogleSignInSuccess()
+                awaitingGoogleSignIn = false; viewModel.resetState(); onGoogleSignInSuccess()
             }
-            // Fallback: Success also navigates to home for Google
             awaitingGoogleSignIn && uiState is AuthUiState.Success -> {
-                awaitingGoogleSignIn = false
-                viewModel.resetState()
-                onGoogleSignInSuccess()
+                awaitingGoogleSignIn = false; viewModel.resetState(); onGoogleSignInSuccess()
             }
-            awaitingGoogleSignIn && uiState is AuthUiState.Error -> {
-                awaitingGoogleSignIn = false
-            }
+            awaitingGoogleSignIn && uiState is AuthUiState.Error -> { awaitingGoogleSignIn = false }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Surface900)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(72.dp))
 
         Box(
-            modifier = Modifier
-                .size(80.dp)
-                .background(Green500, RoundedCornerShape(20.dp)),
+            modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
@@ -108,7 +92,7 @@ fun PhoneEntryScreen(
         Text(
             "WhatsApp will send an SMS to verify your number.",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
+            color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(40.dp))
@@ -129,7 +113,7 @@ fun PhoneEntryScreen(
                 value           = phone,
                 onValueChange   = { if (it.length <= 15 && !isLoading) phone = it },
                 modifier        = Modifier.weight(1f),
-                placeholder     = { Text("Phone number", color = TextTertiary) },
+                placeholder     = { Text("Phone number", color = colors.textTertiary) },
                 singleLine      = true,
                 enabled         = !isLoading,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -149,7 +133,7 @@ fun PhoneEntryScreen(
             enabled  = phone.length >= 10 && !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            colors   = ButtonDefaults.buttonColors(containerColor = Green500)
+            colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             if (isLoading && awaitingOtpRequest) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
@@ -161,9 +145,9 @@ fun PhoneEntryScreen(
         Spacer(Modifier.height(24.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Surface600)
-            Text("  or  ", color = TextTertiary, style = MaterialTheme.typography.bodySmall)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Surface600)
+            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+            Text("  or  ", color = colors.textTertiary, style = MaterialTheme.typography.bodySmall)
+            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -184,12 +168,12 @@ fun PhoneEntryScreen(
             enabled  = !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            border   = androidx.compose.foundation.BorderStroke(1.dp, Surface600)
+            border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
             if (isLoading && awaitingGoogleSignIn) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = TextPrimary, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = colors.textPrimary, strokeWidth = 2.dp)
             } else {
-                Text("Continue with Google", color = TextPrimary)
+                Text("Continue with Google", color = colors.textPrimary)
             }
         }
 
@@ -197,7 +181,7 @@ fun PhoneEntryScreen(
         AnimatedVisibility(errorMessage != null) {
             errorMessage?.let {
                 Spacer(Modifier.height(16.dp))
-                Text(it, color = ErrorRed, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                Text(it, color = colors.errorRed, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
             }
         }
     }
@@ -207,16 +191,10 @@ private suspend fun launchGoogleSignIn(activity: Activity): Result<String> =
     runCatching {
         val credentialManager = CredentialManager.create(activity)
         val result = try {
-            credentialManager.getCredential(
-                activity,
-                buildGoogleBottomSheetRequest(activity, filterAuthorizedAccounts = true, autoSelect = true)
-            )
+            credentialManager.getCredential(activity, buildGoogleBottomSheetRequest(activity, filterAuthorizedAccounts = true, autoSelect = true))
         } catch (_: NoCredentialException) {
             try {
-                credentialManager.getCredential(
-                    activity,
-                    buildGoogleBottomSheetRequest(activity, filterAuthorizedAccounts = false, autoSelect = false)
-                )
+                credentialManager.getCredential(activity, buildGoogleBottomSheetRequest(activity, filterAuthorizedAccounts = false, autoSelect = false))
             } catch (_: NoCredentialException) {
                 credentialManager.getCredential(activity, buildGoogleButtonRequest(activity))
             }
@@ -224,11 +202,7 @@ private suspend fun launchGoogleSignIn(activity: Activity): Result<String> =
         GoogleIdTokenCredential.createFrom(result.credential.data).idToken
     }
 
-private fun buildGoogleBottomSheetRequest(
-    activity               : Activity,
-    filterAuthorizedAccounts: Boolean,
-    autoSelect             : Boolean
-): GetCredentialRequest {
+private fun buildGoogleBottomSheetRequest(activity: Activity, filterAuthorizedAccounts: Boolean, autoSelect: Boolean): GetCredentialRequest {
     val googleIdOption = GetGoogleIdOption.Builder()
         .setServerClientId(activity.getString(R.string.default_web_client_id))
         .setFilterByAuthorizedAccounts(filterAuthorizedAccounts)
@@ -238,19 +212,20 @@ private fun buildGoogleBottomSheetRequest(
 }
 
 private fun buildGoogleButtonRequest(activity: Activity): GetCredentialRequest {
-    val googleButtonOption = GetSignInWithGoogleOption.Builder(
-        activity.getString(R.string.default_web_client_id)
-    ).build()
+    val googleButtonOption = GetSignInWithGoogleOption.Builder(activity.getString(R.string.default_web_client_id)).build()
     return GetCredentialRequest.Builder().addCredentialOption(googleButtonOption).build()
 }
 
 @Composable
-fun waTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor   = Green500,
-    unfocusedBorderColor = Surface600,
-    focusedTextColor     = TextPrimary,
-    unfocusedTextColor   = TextPrimary,
-    cursorColor          = Green500,
-    disabledBorderColor  = Surface600,
-    disabledTextColor    = TextSecondary
-)
+fun waTextFieldColors(): TextFieldColors {
+    val colors = LocalAppColors.current
+    return OutlinedTextFieldDefaults.colors(
+        focusedBorderColor   = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        focusedTextColor     = colors.textPrimary,
+        unfocusedTextColor   = colors.textPrimary,
+        cursorColor          = MaterialTheme.colorScheme.primary,
+        disabledBorderColor  = MaterialTheme.colorScheme.outline,
+        disabledTextColor    = colors.textSecondary
+    )
+}
