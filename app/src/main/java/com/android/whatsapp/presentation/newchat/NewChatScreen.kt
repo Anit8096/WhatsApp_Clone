@@ -33,6 +33,8 @@ fun NewChatScreen(
     val viewModel: NewChatViewModel = koinViewModel()
     val state    by viewModel.state.collectAsStateWithLifecycle()
     val colors    = LocalAppColors.current
+    val appBarColor = if (colors.isDark) colors.surface800 else colors.surface900
+    val searchContainerColor = colors.surface700
     val snackbarHostState = remember { SnackbarHostState() }
     val scope    = rememberCoroutineScope()
 
@@ -59,12 +61,21 @@ fun NewChatScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface800)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = appBarColor,
+                    titleContentColor = colors.textPrimary,
+                    navigationIconContentColor = colors.textPrimary
+                )
             )
         },
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data, containerColor = colors.surface700, contentColor = colors.textPrimary, actionColor = MaterialTheme.colorScheme.primary)
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = if (colors.isDark) colors.surface700 else colors.surface900,
+                    contentColor = colors.textPrimary,
+                    actionColor = MaterialTheme.colorScheme.primary
+                )
             }
         },
         containerColor = colors.surface900
@@ -81,8 +92,8 @@ fun NewChatScreen(
                 colors        = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor      = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor    = MaterialTheme.colorScheme.outline,
-                    focusedContainerColor   = colors.surface800,
-                    unfocusedContainerColor = colors.surface800,
+                    focusedContainerColor   = searchContainerColor,
+                    unfocusedContainerColor = searchContainerColor,
                     focusedTextColor        = colors.textPrimary,
                     unfocusedTextColor      = colors.textPrimary,
                     cursorColor             = MaterialTheme.colorScheme.primary
@@ -123,7 +134,7 @@ fun NewChatScreen(
 private fun UserRow(user: User, onClick: () -> Unit) {
     val colors = LocalAppColors.current
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(colors.surface900).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -139,7 +150,7 @@ private fun UserRow(user: User, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(user.displayName.ifBlank { "Unknown" }, style = MaterialTheme.typography.titleSmall)
+            Text(user.displayName.ifBlank { "Unknown" }, style = MaterialTheme.typography.titleSmall, color = colors.textPrimary)
             Text(user.phoneNumber, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
         }
     }

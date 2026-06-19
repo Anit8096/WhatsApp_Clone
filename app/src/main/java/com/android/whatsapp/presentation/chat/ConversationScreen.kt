@@ -23,7 +23,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +38,6 @@ import com.android.whatsapp.model.dataclass.MessageStatus
 import com.android.whatsapp.model.dataclass.MessageType
 import com.android.whatsapp.ui.theme.AppColors
 import com.android.whatsapp.ui.theme.LocalAppColors
-import com.android.whatsapp.ui.theme.TealAccent
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import org.koin.compose.viewmodel.koinViewModel
@@ -104,8 +102,7 @@ fun ConversationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.surface900)
-            .systemBarsPadding()
+            .background(colors.chatBackground)
             .imePadding()
     ) {
         ConversationTopBar(
@@ -121,7 +118,7 @@ fun ConversationScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(colors.surface900, if (colors.isDark) Color(0xFF0D1418) else colors.surface700)))
+                    .background(colors.chatBackground)
             )
             LazyColumn(
                 state               = listState,
@@ -259,8 +256,8 @@ private fun MessageBubble(message: Message, myUid: String, peerId: String, onIma
                         contentAlignment = Alignment.Center
                     ) { Icon(Icons.Default.PlayCircle, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(44.dp)) }
                     MessageType.DOCUMENT -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.widthIn(max = 220.dp).padding(4.dp)) {
-                        Box(modifier = Modifier.size(36.dp).background(TealAccent.copy(alpha = 0.2f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = TealAccent, modifier = Modifier.size(20.dp))
+                        Box(modifier = Modifier.size(36.dp).background(colors.readBlue.copy(alpha = 0.18f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = colors.readBlue, modifier = Modifier.size(20.dp))
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(message.fileName.ifBlank { "Document" }, color = colors.textPrimary, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -315,14 +312,14 @@ private fun MessageInputBar(viewModel: ConversationViewModel, onOpenCamera: () -
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { viewModel.sendMedia(it, MessageType.VIDEO) } }
     val docPicker   = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { viewModel.sendMedia(it, MessageType.DOCUMENT, it.lastPathSegment ?: "document") } }
 
-    Column {
+    Column(modifier = Modifier.navigationBarsPadding()) {
         AnimatedVisibility(
             visible = showAttachMenu,
             enter   = slideInVertically { it } + fadeIn(),
             exit    = slideOutVertically { it } + fadeOut()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().background(colors.surface800).padding(horizontal = 12.dp, vertical = 14.dp),
+                modifier = Modifier.fillMaxWidth().background(colors.chatBackground).padding(horizontal = 12.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 AttachOption(Icons.Default.CameraAlt, "Camera", Color(0xFF43A047)) { showAttachMenu = false; onOpenCamera() }
@@ -334,7 +331,7 @@ private fun MessageInputBar(viewModel: ConversationViewModel, onOpenCamera: () -
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().background(colors.surface800).padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().background(colors.chatBackground).padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(

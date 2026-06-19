@@ -78,22 +78,25 @@ fun OtpVerifyScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = colors.surface900,
+                    navigationIconContentColor = colors.textPrimary
+                )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = colors.surface900
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(48.dp))
-            Text("Verify your number", style = MaterialTheme.typography.titleLarge)
+            Text("Verify your number", style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
             Spacer(Modifier.height(8.dp))
             Text(
                 "Enter the 6-digit code sent to\n$phoneNumber",
                 style     = MaterialTheme.typography.bodyMedium,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                color     = colors.textSecondary,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(48.dp))
@@ -114,10 +117,10 @@ fun OtpVerifyScreen(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                            .background(if (colors.isDark) colors.surface800 else colors.surface900, RoundedCornerShape(10.dp))
                             .border(
                                 width = if (isFocused) 2.dp else 1.dp,
-                                color = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                color = if (isFocused) MaterialTheme.colorScheme.primary else colors.dividerColor,
                                 shape = RoundedCornerShape(10.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -127,7 +130,7 @@ fun OtpVerifyScreen(
                         } else {
                             Text(
                                 text       = char?.toString() ?: "",
-                                color      = MaterialTheme.colorScheme.onSurface,
+                                color      = colors.textPrimary,
                                 fontSize   = 22.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -143,12 +146,17 @@ fun OtpVerifyScreen(
                 enabled  = otp.length == 6 && !isLoading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(14.dp),
-                colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = White,
+                    disabledContainerColor = colors.surface600,
+                    disabledContentColor = colors.textTertiary
+                )
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = White, strokeWidth = 2.dp)
                 } else {
-                    Text("Verify", color = White)
+                    Text("Verify")
                 }
             }
 

@@ -181,7 +181,7 @@ private fun EditDialog(
     val colors = LocalAppColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor   = colors.surface800,
+        containerColor   = if (colors.isDark) colors.surface800 else colors.surface900,
         title = { Text(title, color = colors.textPrimary) },
         text  = {
             Column {

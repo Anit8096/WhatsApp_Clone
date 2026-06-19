@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -53,6 +54,8 @@ fun HomeScreen(
     val viewModel  : HomeViewModel = koinViewModel()
     val chats      by viewModel.chats.collectAsStateWithLifecycle()
     val colors      = LocalAppColors.current
+    val appBarColor = if (colors.isDark) colors.surface800 else colors.surface900
+    val navBarColor = if (colors.isDark) colors.surface800 else colors.surface900
     var selectedTab by remember { mutableIntStateOf(0) }
 
     var searchActive by remember { mutableStateOf(false) }
@@ -102,14 +105,19 @@ fun HomeScreen(
                                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
                                 )
                             } else {
-                                Text(text = "WhatsApp", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Text(
+                                    text = "WhatsApp",
+                                    color = if (colors.isDark) colors.textPrimary else MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp
+                                )
                             }
                         }
                     },
                     navigationIcon = {
                         if (searchActive) {
                             IconButton(onClick = { searchActive = false; searchQuery = ""; focusManager.clearFocus() }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Close search", tint = colors.textPrimary)
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search", tint = colors.textPrimary)
                             }
                         }
                     },
@@ -120,20 +128,25 @@ fun HomeScreen(
                             IconButton(onClick = onOpenSettings) { Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = colors.textPrimary) }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface800)
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = appBarColor,
+                        titleContentColor = colors.textPrimary,
+                        navigationIconContentColor = colors.textPrimary,
+                        actionIconContentColor = colors.textPrimary
+                    )
                 )
                 AnimatedVisibility(visible = searchActive && searchQuery.isNotBlank()) {
                     Text(
                         text     = "${filteredChats.size} result${if (filteredChats.size == 1) "" else "s"}",
                         color    = colors.textSecondary,
                         style    = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.background(colors.surface800).fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier.background(appBarColor).fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = colors.surface800, tonalElevation = 0.dp) {
+            NavigationBar(containerColor = navBarColor, tonalElevation = 0.dp) {
                 BottomNavItem.entries.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -145,7 +158,7 @@ fun HomeScreen(
                             selectedTextColor   = MaterialTheme.colorScheme.primary,
                             unselectedIconColor = colors.textSecondary,
                             unselectedTextColor = colors.textSecondary,
-                            indicatorColor      = colors.surface700
+                            indicatorColor      = if (colors.isDark) colors.surface700 else MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
                 }
@@ -185,7 +198,7 @@ fun HomeScreen(
                             enableDismissFromStartToEnd = false,
                             backgroundContent = {
                                 val bgColor by animateColorAsState(
-                                    targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFE53935) else colors.surface800,
+                                    targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFE53935) else colors.surface900,
                                     label = "swipe_bg"
                                 )
                                 Box(modifier = Modifier.fillMaxSize().background(bgColor).padding(end = 20.dp), contentAlignment = Alignment.CenterEnd) {
@@ -224,6 +237,7 @@ fun ChatRow(chat: Chat, onClick: () -> Unit) {
                 Text(
                     text     = chat.peerName,
                     style    = MaterialTheme.typography.titleSmall,
+                    color    = colors.textPrimary,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

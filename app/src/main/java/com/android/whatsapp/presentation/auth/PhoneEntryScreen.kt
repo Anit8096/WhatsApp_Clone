@@ -73,7 +73,7 @@ fun PhoneEntryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(colors.surface900)
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -87,7 +87,7 @@ fun PhoneEntryScreen(
         }
 
         Spacer(Modifier.height(32.dp))
-        Text("Enter your phone number", style = MaterialTheme.typography.titleLarge)
+        Text("Enter your phone number", style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
             "WhatsApp will send an SMS to verify your number.",
@@ -133,21 +133,26 @@ fun PhoneEntryScreen(
             enabled  = phone.length >= 10 && !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            colors   = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                disabledContainerColor = colors.surface600,
+                disabledContentColor = colors.textTertiary
+            )
         ) {
             if (isLoading && awaitingOtpRequest) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
-                Text("Continue", color = Color.White)
+                Text("Continue")
             }
         }
 
         Spacer(Modifier.height(24.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(modifier = Modifier.weight(1f), color = colors.dividerColor)
             Text("  or  ", color = colors.textTertiary, style = MaterialTheme.typography.bodySmall)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(modifier = Modifier.weight(1f), color = colors.dividerColor)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -168,12 +173,18 @@ fun PhoneEntryScreen(
             enabled  = !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            border   = androidx.compose.foundation.BorderStroke(1.dp, colors.dividerColor),
+            colors   = ButtonDefaults.outlinedButtonColors(
+                containerColor = colors.surface900,
+                contentColor = colors.textPrimary,
+                disabledContainerColor = colors.surface900,
+                disabledContentColor = colors.textTertiary
+            )
         ) {
             if (isLoading && awaitingGoogleSignIn) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = colors.textPrimary, strokeWidth = 2.dp)
             } else {
-                Text("Continue with Google", color = colors.textPrimary)
+                Text("Continue with Google")
             }
         }
 
@@ -222,6 +233,9 @@ fun waTextFieldColors(): TextFieldColors {
     return OutlinedTextFieldDefaults.colors(
         focusedBorderColor   = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        focusedContainerColor = colors.surface900,
+        unfocusedContainerColor = colors.surface900,
+        disabledContainerColor = colors.surface900,
         focusedTextColor     = colors.textPrimary,
         unfocusedTextColor   = colors.textPrimary,
         cursorColor          = MaterialTheme.colorScheme.primary,

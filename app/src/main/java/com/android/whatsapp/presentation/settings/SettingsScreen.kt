@@ -42,7 +42,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("Settings", color = colors.textPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
@@ -59,7 +59,7 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(colors.surface800)
+                    .background(if (colors.isDark) colors.surface800 else colors.surface900)
                     .clickable(onClick = onOpenProfile)
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -123,7 +123,7 @@ fun SettingsScreen(
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            containerColor    = colors.surface800,
+            containerColor    = if (colors.isDark) colors.surface800 else colors.surface900,
             title = { Text("Choose theme", color = colors.textPrimary) },
             text = {
                 Column {
@@ -142,7 +142,7 @@ fun SettingsScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            containerColor    = colors.surface800,
+            containerColor    = if (colors.isDark) colors.surface800 else colors.surface900,
             title   = { Text("Log out?", color = colors.textPrimary) },
             text    = { Text("You'll need to verify your number again to log back in.", color = colors.textSecondary) },
             confirmButton = {
@@ -203,7 +203,7 @@ private fun SettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surface800)
+            .background(if (colors.isDark) colors.surface800 else colors.surface900)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically

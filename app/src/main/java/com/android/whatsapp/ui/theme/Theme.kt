@@ -1,23 +1,35 @@
 package com.android.whatsapp.ui.theme
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary             = Green500,
     onPrimary           = Color.Black,
-    primaryContainer    = Green900,
+    primaryContainer    = BubbleOut,
     onPrimaryContainer  = TextPrimary,
     secondary           = TealAccent,
     onSecondary         = Color.Black,
+    secondaryContainer  = Surface700,
+    onSecondaryContainer = TextPrimary,
+    tertiary            = Green700,
+    onTertiary          = Color.White,
+    tertiaryContainer   = Surface700,
+    onTertiaryContainer = TextPrimary,
     background          = Surface900,
     onBackground        = TextPrimary,
-    surface             = Surface800,
+    surface             = Surface900,
     onSurface           = TextPrimary,
     surfaceVariant      = Surface700,
     onSurfaceVariant    = TextSecondary,
@@ -30,13 +42,19 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
     primary             = Green700,
     onPrimary           = Color.White,
-    primaryContainer    = Color(0xFFD9FDD3),
+    primaryContainer    = BubbleOutLight,
     onPrimaryContainer  = TextPrimaryLight,
     secondary           = TealAccent,
-    onSecondary         = Color.White,
+    onSecondary         = Color.Black,
+    secondaryContainer  = Color(0xFFE7FCE3),
+    onSecondaryContainer = TextPrimaryLight,
+    tertiary            = Green900,
+    onTertiary          = Color.White,
+    tertiaryContainer   = Surface700Light,
+    onTertiaryContainer = TextPrimaryLight,
     background          = Surface900Light,
     onBackground        = TextPrimaryLight,
-    surface             = Surface800Light,
+    surface             = Surface900Light,
     onSurface           = TextPrimaryLight,
     surfaceVariant      = Surface700Light,
     onSurfaceVariant    = TextSecondaryLight,
@@ -62,6 +80,8 @@ fun WhatsAppTheme(
     val appColors    = if (useDark) DarkAppColors else LightAppColors
     val colorScheme  = if (useDark) DarkColorScheme else LightColorScheme
 
+    WhatsAppSystemBars(useDark = useDark)
+
     CompositionLocalProvider(LocalAppColors provides appColors) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -69,4 +89,28 @@ fun WhatsAppTheme(
             content     = content
         )
     }
+}
+
+@Composable
+private fun WhatsAppSystemBars(useDark: Boolean) {
+    val view = LocalView.current
+
+    if (!view.isInEditMode) {
+        DisposableEffect(useDark, view) {
+            val window = view.context.findActivity()?.window
+            if (window != null) {
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !useDark
+                    isAppearanceLightNavigationBars = !useDark
+                }
+            }
+            onDispose { }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

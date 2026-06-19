@@ -43,13 +43,13 @@ fun ProfileSetupScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(colors.surface900)
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(72.dp))
 
-        Text("Profile info", style = MaterialTheme.typography.titleLarge)
+        Text("Profile info", style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
             "Please provide your name and an optional profile photo.",
@@ -64,7 +64,7 @@ fun ProfileSetupScreen(
             modifier = Modifier
                 .size(100.dp)
                 .clip(CircleShape)
-                .background(colors.surface700)
+                .background(if (colors.isDark) colors.surface700 else colors.surface600)
                 .clickable { /* TODO: open image picker */ }
                 .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
             contentAlignment = Alignment.Center
@@ -97,12 +97,17 @@ fun ProfileSetupScreen(
             enabled  = name.isNotBlank() && uiState !is AuthUiState.Loading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape    = RoundedCornerShape(14.dp),
-            colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            colors   = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                disabledContainerColor = colors.surface600,
+                disabledContentColor = colors.textTertiary
+            )
         ) {
             if (uiState is AuthUiState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
-                Text("Next", color = Color.White)
+                Text("Next")
             }
         }
 
